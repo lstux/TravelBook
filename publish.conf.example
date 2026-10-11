@@ -1,0 +1,16 @@
+# Copie ce fichier en publish.conf puis renseigne tes propres valeurs.
+# publish.conf est ignoré par git (voir .gitignore) : il contient les
+# coordonnées de ton serveur, il ne doit pas être versionné.
+
+REMOTE_USER="ton-user"
+REMOTE_HOST="ton-serveur.exemple.com"
+REMOTE_PATH="/var/www/carnet-slovaquie"
+
+# Optionnel — port SSH non standard
+# SSH_PORT="22"
+
+# Optionnel — clé SSH spécifique si tu n'utilises pas la clé par défaut
+# SSH_KEY="$HOME/.ssh/id_ed25519_serveur"
+
+# Optionnel — juste affiché à la fin du déploiement, aucun effet fonctionnel
+# SITE_URL="https://carnet.exemple.com"

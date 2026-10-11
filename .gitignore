@@ -1,6 +1,15 @@
 # Sortie générée par le build (jamais éditée à la main)
 html/
 
+# Données : dépôt séparé (TravelBook-Slovakia). Le dossier data/ en est un clone
+# local ; img/ et manifest.json à la racine sont des liens locaux pour prévisualiser.
+data/
+img/
+manifest.json
+
+# Configuration serveur : coordonnées réelles, jamais versionnée
+publish.conf
+
 # Python
 __pycache__/
 *.pyc

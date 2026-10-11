@@ -1,0 +1,139 @@
+/* admin-mobile.css — vient compléter admin.css pour admin2.html.
+   Pas de Kanban ici : un sélecteur de groupe + une liste verticale,
+   pensés pour une largeur d'écran ~380px et des doigts, pas une souris. */
+
+.admin-mobile-section {
+  margin-bottom: 18px;
+}
+
+.admin-mobile-section h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+/* ---------- Ordre des étapes ---------- */
+.etape-order-list {
+  background: var(--cream-paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.etape-order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.etape-order-item:last-child { border-bottom: none; }
+
+/* ---------- Sélecteur de groupe ---------- */
+#group-select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cream-paper);
+  font-family: var(--font-body);
+  margin-bottom: 10px;
+}
+
+/* ---------- Cartes mobiles ---------- */
+.admin-card-mobile {
+  background: var(--cream-paper);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--spruce);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.admin-card-mobile.family-Dodo { border-left-color: #7a5a3a; }
+.admin-card-mobile.family-Table { border-left-color: var(--blaze); }
+.admin-card-mobile.family-Culture { border-left-color: #4a5c66; }
+
+.admin-card-mobile .admin-card-family {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.admin-card-mobile .admin-card-title {
+  font-weight: 650;
+  font-size: 15px;
+  margin-top: 2px;
+}
+
+.admin-card-mobile .admin-card-region {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+
+.card-actions-mobile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Cibles tactiles généreuses : 40px minimum de côté, pas les petits
+   boutons ↑↓ discrets de la version souris. */
+.card-actions-mobile .mv-btn {
+  min-width: 40px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cream-paper);
+  font-size: 16px;
+  color: var(--ink-soft);
+}
+
+.card-actions-mobile .mv-btn:disabled { opacity: 0.3; }
+
+.card-actions-mobile .mv-assign {
+  flex: 1;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cream-paper);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.etape-order-item .mv-btn {
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cream-paper);
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-left: 4px;
+}
+
+.etape-order-item .mv-btn:disabled { opacity: 0.3; }
+
+/* ---------- Ajustements généraux mobile ---------- */
+.filters-bar { flex-direction: column; align-items: stretch; }
+.filters-bar input, .filters-bar select { width: 100%; }
+
+#admin-map { height: 50vh; }
+
+.admin-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--cream);
+  padding: 10px 0;
+  margin: 0 0 12px;
+}

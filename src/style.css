@@ -1,0 +1,1111 @@
+/* ============================================================
+   Carnet Slovaquie — design system
+   Tokens d'abord, composants ensuite. Aucune couleur en dur
+   ailleurs que dans ce fichier.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap');
+
+:root {
+  /* Palette — reprise de v2 (crème/papier/terracotta/vert), qu'on aime déjà */
+  --spruce: #426653;
+  --spruce-dark: #2c4436;
+  --cream: #f5f3ee;
+  --cream-paper: #fffdf8;
+  --ink: #26302b;
+  --ink-soft: #6c756f;
+  --blaze: #b34d38;
+  --blaze-soft: #f2ded7;
+  --blaze-text: #823729;
+  --line: #ded9ce;
+
+  /* Typo — Georgia/system-ui de v2 pour le texte ; JetBrains Mono reste
+     notre ajout, réservé aux petites pastilles de données (badges) */
+  --font-display: Georgia, 'Times New Roman', serif;
+  --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Layout */
+  --radius-card: 18px;
+  --radius-pill: 20px;
+  --pad-page: 16px;
+  --max-width: 480px;
+}
+
+/* Thèmes par région : variations de vert/terracotta, cohérentes avec la
+   palette v2 plutôt que des teintes arbitraires. Ajouter une région =
+   ajouter un bloc ici, rien d'autre à toucher.
+   --theme-rgb (mêmes couleurs, triplet r,g,b) sert au lavis semi-
+   transparent posé sur l'illustration de fond du bandeau. */
+[data-theme="liptov"]           { --theme: var(--spruce); --theme-dark: var(--spruce-dark); --theme-rgb: 66,102,83; }
+[data-theme="mala-fatra"]       { --theme: #4f7157; --theme-dark: #33482f; --theme-rgb: 79,113,87; }
+[data-theme="tatry"]            { --theme: #3f5a63; --theme-dark: #293c42; --theme-rgb: 63,90,99; }
+[data-theme="slovensky-raj"]    { --theme: #5c6b3a; --theme-dark: #3a4324; --theme-rgb: 92,107,58; }
+[data-theme="kosice"]           { --theme: var(--blaze); --theme-dark: var(--blaze-text); --theme-rgb: 179,77,56; }
+[data-theme="karst"]            { --theme: #6b5a3e; --theme-dark: #453a28; --theme-rgb: 107,90,62; }
+[data-theme="bratislava"]       { --theme: #4a5c66; --theme-dark: #2f3c43; --theme-rgb: 74,92,102; }
+[data-theme="banska-stiavnica"] { --theme: #7a5a3a; --theme-dark: #4f3a24; --theme-rgb: 122,90,58; }
+[data-theme="spis"]             { --theme: #6b5548; --theme-dark: #453832; --theme-rgb: 107,85,72; }
+[data-theme=""],
+:root                        { --theme: var(--spruce); --theme-dark: var(--spruce-dark); --theme-rgb: 66,102,83; }
+
+/* Écrans larges (PC) uniquement — les téléphones (<720px) ne voient
+   jamais cette règle, donc le rendu mobile reste identique. */
+@media (min-width: 720px) {
+  :root { --max-width: 780px; }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  padding-bottom: 64px; /* place pour la tab bar fixe */
+}
+
+.wrap {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--pad-page);
+}
+
+a { color: inherit; }
+
+/* ---------- Bandeau ---------- */
+.band {
+  background: var(--theme, var(--spruce));
+  background-image:
+    linear-gradient(rgba(var(--theme-rgb), 0.82), rgba(var(--theme-rgb), 0.93)),
+    url("../img/band-landscape.svg");
+  background-size: cover;
+  background-position: center;
+  padding: 22px var(--pad-page) 26px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Carnet uniquement : drapeau slovaque plutôt que le paysage générique,
+   lavis plus léger pour laisser transparaître les couleurs du drapeau. */
+body.hero-flag .band {
+  background-image:
+    linear-gradient(rgba(var(--theme-rgb), 0.5), rgba(var(--theme-rgb), 0.7)),
+    url("../img/slovak-flag.svg");
+}
+
+.band .coat-of-arms {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 30px;
+  height: auto;
+  opacity: 0.9;
+  z-index: 1;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+}
+
+/* Le drapeau du Carnet contient déjà le blason — pas besoin de le répéter. */
+body.hero-flag .band .coat-of-arms {
+  display: none;
+}
+
+.band .kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--blaze-soft);
+  position: relative;
+  z-index: 1;
+}
+
+.band h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 26px;
+  color: var(--cream-paper);
+  margin: 6px 0 4px;
+  position: relative;
+  z-index: 1;
+}
+
+.band .subtitle {
+  font-size: 13px;
+  color: #d9e2da;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Badges (bloc chiffré) ---------- */
+.badge-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: #dfe8dc;
+  color: var(--spruce);
+}
+
+.badge.accent {
+  background: var(--blaze-soft);
+  color: var(--blaze-text);
+}
+
+/* ---------- Cartes ---------- */
+.card {
+  background: var(--cream-paper);
+  border: 0.5px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.card .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--theme, var(--spruce));
+  margin-bottom: 4px;
+}
+
+.card p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ---------- Anecdote ---------- */
+.anecdote {
+  border-left: 3px solid var(--blaze);
+  background: var(--blaze-soft);
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.anecdote .label {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--blaze-text);
+  margin-bottom: 4px;
+}
+
+.anecdote p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #4a2a10;
+  margin: 0;
+}
+
+/* ---------- Narrative (blocs ## de récit long) ----------
+   Oubli corrigé au passage : ces classes existaient dans le parseur
+   depuis un moment mais n'avaient jamais eu de règles CSS associées. */
+.narrative {
+  margin-bottom: 16px;
+}
+
+.narrative-heading {
+  font-family: var(--font-display);
+  font-size: 19px;
+  line-height: 1.2;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.narrative p {
+  font-size: 14px;
+  line-height: 1.62;
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+
+.narrative p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Article histoire (pages écrites à la main) ---------- */
+.histoire-hero {
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.histoire-hero img {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  display: block;
+}
+
+.histoire-lede {
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--ink);
+  padding: 16px 16px 16px 18px;
+  margin-bottom: 18px;
+  border-left: 3px solid var(--theme, var(--spruce));
+  background: var(--cream-paper);
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
+}
+
+.timeline {
+  margin: 4px 0 22px;
+  padding: 4px 0;
+}
+
+.timeline-item {
+  position: relative;
+  padding: 0 0 16px 22px;
+  border-left: 2px solid var(--line);
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--theme, var(--blaze));
+}
+
+.timeline-date {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--theme, var(--spruce-dark));
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+}
+
+.timeline-label {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+@media (min-width: 720px) {
+  .histoire-hero img {
+    height: 380px;
+  }
+}
+
+/* ---------- Image ---------- */
+figure {
+  margin: 0 0 12px;
+}
+figure img {
+  width: 100%;
+  border-radius: var(--radius-card);
+  display: block;
+}
+figcaption {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+
+/* ---------- Index / cartes de navigation ---------- */
+.index-section {
+  margin: 20px 0;
+}
+
+.index-section h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+
+.index-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.index-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--cream-paper);
+  border: 0.5px solid var(--line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.card-thumb {
+  height: 88px;
+  background: var(--theme, var(--spruce));
+}
+
+.card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Repli sans photo : aplat de couleur + initiale, jamais d'image cassée */
+.card-thumb.fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-thumb.fallback::before {
+  content: attr(data-initial);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 32px;
+  color: rgba(253, 251, 246, 0.4);
+}
+
+.index-card-body {
+  padding: 10px 12px;
+}
+
+.index-card .type {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.index-card .title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  margin-top: 2px;
+}
+
+/* ---------- Étape : composition ---------- */
+.day-group {
+  margin-bottom: 16px;
+}
+.day-group h3 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+}
+
+.trajet {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+/* ---------- Speakable (lecture slovaque via slovak.js) ---------- */
+.speakable {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.speakable:hover {
+  color: var(--spruce);
+}
+
+.speakable::before {
+  content: "🔊 ";
+}
+
+/* ---------- Navigation précédent / suivant ---------- */
+.back-link {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  margin: 18px 0 8px;
+}
+
+.fiche-nav {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 4px;
+  border-top: 0.5px solid var(--line);
+  padding-top: 12px;
+}
+
+.nav-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  text-decoration: none;
+  color: var(--ink);
+  padding: 8px 10px;
+  border: 0.5px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.nav-link.next {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.nav-link .arrow {
+  color: var(--blaze);
+  font-family: var(--font-mono);
+}
+
+.nav-link.empty {
+  border-color: transparent;
+}
+
+/* ---------- Carte Leaflet ---------- */
+.map-embed {
+  position: relative; /* ancre le bouton d'agrandissement */
+  margin-bottom: 14px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  border: 0.5px solid var(--line);
+}
+
+.leaflet-map {
+  height: 220px;
+  width: 100%;
+  background: var(--line);
+}
+
+/* Bouton agrandir/réduire, posé sur la carte */
+.map-expand-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border: 0.5px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--cream-paper);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(38, 48, 43, 0.18);
+}
+
+/* État "dépliée" : plein écran, mobile d'abord */
+.map-embed.map-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 1000; /* au-dessus de la tab bar */
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--cream-paper);
+}
+
+.map-embed.map-expanded .leaflet-map {
+  height: 100%;
+}
+
+.map-embed.map-expanded .map-expand-btn {
+  top: 14px;
+  right: 14px;
+}
+
+/* PC : on garde une marge et les coins arrondis plutôt que le bord à bord
+   qui a du sens sur téléphone, avec un fond assombri autour de la carte. */
+@media (min-width: 720px) {
+  .map-embed.map-expanded {
+    padding: 24px;
+    background: rgba(38, 48, 43, 0.55);
+  }
+  .map-embed.map-expanded .leaflet-map {
+    height: 100%;
+    max-width: var(--max-width);
+    margin: 0 auto;
+    border-radius: var(--radius-card);
+  }
+}
+
+/* Empêche le fond de scroller derrière la carte plein écran */
+body.map-scroll-lock {
+  overflow: hidden;
+}
+
+.map-popup {
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.map-popup strong {
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.map-popup-type {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin: 2px 0 4px;
+}
+
+.map-popup a {
+  color: var(--blaze);
+  font-size: 12px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.route-line {
+  stroke: var(--blaze);
+  stroke-width: 3;
+  stroke-dasharray: 7 6;
+}
+
+/* ---------- Tab bar ---------- */
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: var(--cream-paper);
+  border-top: 0.5px solid var(--line);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.tabbar a {
+  flex: 1;
+  text-align: center;
+  padding: 8px 0 10px;
+  text-decoration: none;
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.tabbar a.active {
+  color: var(--blaze);
+}
+
+.tabbar .icon {
+  display: block;
+  font-size: 18px;
+  margin-bottom: 2px;
+}
+
+/* ---------- Utilitaires ---------- */
+main {
+  padding: 16px var(--pad-page) 24px;
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.pill-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 6px 0 0;
+}
+.pill-list .pill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: #dfe8dc;
+  color: var(--spruce);
+}
+
+/* ----------------------------------------------------------------------
+   Page Pays — fiche Culture catégorie: intro (render_intro_hero)
+   Adapté de la maquette carnet-slovaquie-intro-maquette.html : mêmes
+   tokens, donc quasi copié-collé. N'affecte que les fiches "intro".
+   ---------------------------------------------------------------------- */
+
+.hero-intro {
+  position: relative;
+  min-height: 540px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  margin: calc(-1 * var(--pad-page)) calc(-1 * var(--pad-page)) 18px;
+  border-radius: 0 0 28px 28px;
+  background-size: cover;
+  background-position: center;
+}
+
+.hero-intro::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(66,102,83,.18), transparent 55%);
+  pointer-events: none;
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 2;
+  padding: 26px 18px 24px;
+  color: var(--cream-paper);
+  width: 100%;
+}
+
+.hero-kicker {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  background: rgba(255,253,248,.92);
+  color: var(--spruce-dark);
+  border-radius: var(--radius-pill);
+  padding: 5px 9px;
+  margin-bottom: 10px;
+}
+
+.hero-copy h1 {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 10vw, 58px);
+  line-height: .94;
+  font-weight: 600;
+  margin: 0 0 12px;
+  letter-spacing: -.035em;
+  max-width: 650px;
+}
+
+.hero-copy .lead {
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 600px;
+  margin: 0;
+  color: #edf2ed;
+}
+
+.intro-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.08;
+  margin: 0 0 8px;
+}
+
+.intro-subtitle {
+  margin: 0 0 14px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.reasons {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.reason {
+  position: relative;
+  overflow: hidden;
+  min-height: 152px;
+  border-radius: var(--radius-card);
+  background: var(--cream-paper);
+  border: .5px solid var(--line);
+}
+
+.reason img {
+  width: 100%;
+  height: 152px;
+  object-fit: cover;
+  display: block;
+  filter: saturate(.92);
+}
+
+.reason::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(20,31,26,.76), rgba(20,31,26,.08) 72%);
+}
+
+.reason-copy {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 15px;
+  color: white;
+  max-width: 82%;
+}
+
+.reason-number {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: .78;
+  margin-bottom: 3px;
+}
+
+.reason h3 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1;
+  margin: 0 0 5px;
+}
+
+.reason p {
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+  color: #f4f5f2;
+}
+
+.family-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.family-card {
+  padding: 14px;
+  background: var(--cream-paper);
+  border: .5px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.family-card .emoji {
+  font-size: 26px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.family-card strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.family-card p {
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.quote {
+  position: relative;
+  padding: 22px 18px 20px;
+  margin: 22px 0;
+  border-radius: var(--radius-card);
+  background: #f5e2da;
+  border: .5px solid var(--blaze);
+  overflow: hidden;
+}
+
+.quote-mark {
+  position: absolute;
+  right: 12px;
+  top: -9px;
+  font-family: Georgia, serif;
+  font-size: 60px;
+  line-height: 1;
+  color: rgba(179,77,56,.18);
+}
+
+.quote p {
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1.28;
+  margin: 0;
+  color: #4a2a10;
+}
+
+.quote small {
+  display: block;
+  margin-top: 9px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--blaze-text);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.culture-bonus {
+  padding: 24px 20px;
+  margin: 22px 0;
+  border-radius: var(--radius-card);
+  background: linear-gradient(135deg, rgba(66,102,83,.10), rgba(179,77,56,.08));
+  border: .5px solid var(--line);
+}
+
+.culture-bonus .intro-title {
+  margin-bottom: 10px;
+}
+
+.culture-bonus p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+  color: var(--ink);
+}
+
+.culture-bonus .speakable {
+  display: inline-block;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--cream-paper);
+  border: .5px solid var(--blaze);
+  color: var(--blaze-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.culture-bonus .speakable::before {
+  content: "🔊 ";
+}
+
+.geo-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 4px 0 18px;
+}
+
+.geo-stat {
+  background: var(--cream-paper);
+  border: .5px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 14px;
+}
+
+.geo-stat-value {
+  font-family: var(--font-display);
+  font-size: 21px;
+  line-height: 1;
+  color: var(--theme, var(--spruce-dark));
+  margin-bottom: 5px;
+}
+
+.geo-stat-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--ink-soft);
+  margin-bottom: 5px;
+}
+
+.geo-stat-note {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+@media (min-width: 720px) {
+  .geo-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0 20px;
+}
+
+.stat-card {
+  padding: 13px 14px;
+  background: var(--cream-paper);
+  border: .5px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.stat-card .stat-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--ink-soft);
+  margin-bottom: 7px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  padding: 2.5px 0;
+}
+
+.stat-row.sk {
+  font-weight: 600;
+  color: var(--spruce-dark);
+}
+
+.stat-row.fr {
+  color: var(--ink-soft);
+}
+
+@media (min-width: 720px) {
+  .stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.cta {
+  text-align: center;
+  padding: 23px 17px;
+  margin: 22px 0 6px;
+  border-radius: var(--radius-card);
+  background: var(--spruce-dark);
+  color: var(--cream-paper);
+}
+
+.cta h2 {
+  font-family: var(--font-display);
+  font-size: 23px;
+  line-height: 1.08;
+  margin: 0 0 8px;
+}
+
+.cta p {
+  font-size: 13px;
+  color: #dbe5de;
+  line-height: 1.45;
+  margin: 0 0 15px;
+}
+
+.cta-button {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--blaze);
+  color: white;
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+
+.mini-map {
+  position: relative;
+  min-height: 210px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, rgba(66,102,83,.92), rgba(63,90,99,.88)),
+    repeating-linear-gradient(30deg, transparent 0 18px, rgba(255,255,255,.06) 19px 20px);
+  color: var(--cream-paper);
+  padding: 18px;
+}
+
+.mini-map::before {
+  content: "SLOVAQUIE";
+  position: absolute;
+  right: -10px;
+  top: 18px;
+  font-family: var(--font-display);
+  font-size: 52px;
+  opacity: .08;
+  transform: rotate(-12deg);
+}
+
+.mini-map-route {
+  position: relative;
+  height: 170px;
+  margin-top: 2px;
+}
+
+.route-line-demo {
+  position: absolute;
+  left: 19%;
+  top: 27%;
+  width: 64%;
+  height: 55%;
+  border-left: 3px dashed rgba(242,222,215,.9);
+  border-bottom: 3px dashed rgba(242,222,215,.9);
+  border-radius: 0 0 0 65%;
+  transform: rotate(-12deg);
+}
+
+.mini-map-pin {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--blaze);
+  border: 2px solid white;
+  box-shadow: 0 2px 7px rgba(0,0,0,.25);
+}
+
+.mini-map-pin span {
+  position: absolute;
+  left: 17px;
+  top: -5px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: white;
+}
+
+.mini-map-pin.bratislava { left: 16%; top: 67%; }
+.mini-map-pin.banska { left: 39%; top: 53%; }
+.mini-map-pin.liptov { left: 57%; top: 29%; }
+.mini-map-pin.tatry { left: 76%; top: 18%; }
+
+@media (min-width: 720px) {
+  .hero-intro {
+    min-height: 650px;
+    border-radius: 0 0 34px 34px;
+  }
+  .hero-copy {
+    padding: 44px 34px 38px;
+  }
+  .reasons {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .reasons.cities {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 620px;
+  }
+  .reason {
+    min-height: 300px;
+  }
+  .reason img {
+    height: 300px;
+  }
+  .family-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

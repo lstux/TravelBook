@@ -1,0 +1,202 @@
+/* Admin — s'appuie sur les tokens de style.css, ajoute juste ce qui est
+   propre à l'outil (tabs, kanban, filtres). */
+
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.admin-tab {
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--cream-paper);
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-tab.active {
+  background: var(--spruce);
+  border-color: var(--spruce);
+  color: #fff;
+}
+
+.admin-panel { display: none; }
+.admin-panel.active { display: block; }
+
+/* ---------- Kanban ---------- */
+.kanban-board {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+
+.kanban-col {
+  flex: 0 0 230px;
+  display: flex;
+  flex-direction: column;
+  max-height: 75vh;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.kanban-col-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cream-paper);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+.kanban-col-header .col-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-arrow {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-soft);
+  padding: 2px 4px;
+}
+
+.col-arrow:disabled { opacity: 0.25; cursor: default; }
+.col-arrow:not(:disabled):hover { color: var(--blaze); }
+
+.kanban-col-body {
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 80px;
+}
+
+.admin-card {
+  background: var(--cream-paper);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--spruce);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  cursor: grab;
+  font-size: 13px;
+}
+
+.admin-card.dragging { opacity: 0.35; }
+.admin-card.family-Dodo { border-left-color: #7a5a3a; }
+.admin-card.family-Table { border-left-color: var(--blaze); }
+.admin-card.family-Culture { border-left-color: #4a5c66; }
+
+.admin-card-family {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.admin-card-title {
+  font-weight: 650;
+  margin-top: 1px;
+}
+
+.admin-card-region {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+
+/* ---------- Filtres & carte ---------- */
+.filters-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.filters-bar input,
+.filters-bar select {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cream-paper);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+#admin-map {
+  height: 60vh;
+  min-height: 320px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+/* ---------- Export ---------- */
+.admin-hint {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 4px 0 6px;
+}
+
+.admin-hint code {
+  font-family: var(--font-mono);
+  background: var(--blaze-soft);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.export-box {
+  width: 100%;
+  min-height: 90px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cream-paper);
+  color: var(--ink);
+  resize: vertical;
+}
+
+.btn-copy {
+  margin-top: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--cream-paper);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.btn-copy:hover { border-color: var(--blaze); color: var(--blaze); }
+.btn-copy.copied { background: var(--spruce); border-color: var(--spruce); color: #fff; }
+
+/* ---------- Largeur PC (admin.html uniquement, via body.admin-page) ----------
+   admin2.html (mobile) n'a pas cette classe et garde --max-width standard.
+   À partir de 720px de large : le site "carnet" passe à 780px (règle dans
+   style.css), mais l'admin desktop, pensé comme un outil de tableau, a
+   besoin de bien plus pour montrer plusieurs colonnes sans scroll. */
+@media (min-width: 720px) {
+  body.admin-page .wrap { max-width: 1400px; }
+}
+
+@media (min-width: 1000px) {
+  .kanban-col { flex-basis: 260px; }
+}
