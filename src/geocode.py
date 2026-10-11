@@ -49,11 +49,19 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tmd2html import load_all_fiches, DATA  # noqa: E402
+from tmd2html import load_all_fiches, set_data_dir, add_data_argument  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
-CACHE_PATH = DATA / "geocache.json"
-REPORT_PATH = DATA / "geocode-a-completer.md"
+DATA = CACHE_PATH = REPORT_PATH = None   # fixés par configure()
+
+
+def configure(value=None):
+    global DATA, CACHE_PATH, REPORT_PATH
+    DATA = set_data_dir(value)
+    CACHE_PATH = DATA / "geocache.json"
+    REPORT_PATH = DATA / "geocode-a-completer.md"
+
+
+configure()
 
 USER_AGENT = "carnet-slovaquie/1.0 (usage personnel, sans contact public)"
 COUNTRY = "Slovaquie"
@@ -322,7 +330,9 @@ def main():
     parser.add_argument("--list", action="store_true", help="liste sans requêter le réseau")
     parser.add_argument("--pause", type=float, default=DEFAULT_PAUSE, help=f"secondes entre deux requêtes (défaut {DEFAULT_PAUSE})")
     parser.add_argument("--interactive", action="store_true", help="reprend les lieux introuvables un par un en fin de passe")
+    add_data_argument(parser)
     args = parser.parse_args()
+    configure(args.data)
 
     fiches = load_all_fiches()
     cache = {} if args.force else load_cache()

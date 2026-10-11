@@ -12,5 +12,10 @@ REMOTE_PATH="/var/www/carnet-slovaquie"
 # Optionnel — clé SSH spécifique si tu n'utilises pas la clé par défaut
 # SSH_KEY="$HOME/.ssh/id_ed25519_serveur"
 
+# Optionnel — dossier des données (md/, pages/, img/, manifest.json).
+# Relatif au moteur s'il n'est pas absolu. Défaut : data
+# L'option --data et la variable CARNET_DATA ont priorité sur cette valeur.
+# DATA_DIR="../TravelBook-Slovakia"
+
 # Optionnel — juste affiché à la fin du déploiement, aucun effet fonctionnel
 # SITE_URL="https://carnet.exemple.com"

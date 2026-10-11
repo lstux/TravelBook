@@ -42,12 +42,21 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tmd2html import load_all_fiches, MD_DIR, HEADER_LINE, DATA  # noqa: E402
+import tmd2html  # noqa: E402
+from tmd2html import load_all_fiches, HEADER_LINE, set_data_dir, add_data_argument  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
-IMG_DIR = DATA / "img"
-CACHE_PATH = DATA / "imgcache.json"      # ne mémorise QUE les échecs (basename -> null)
-REPORT_PATH = DATA / "img-a-completer.md"
+DATA = IMG_DIR = CACHE_PATH = REPORT_PATH = None   # fixés par configure()
+
+
+def configure(value=None):
+    global DATA, IMG_DIR, CACHE_PATH, REPORT_PATH
+    DATA = set_data_dir(value)
+    IMG_DIR = DATA / "img"
+    CACHE_PATH = DATA / "imgcache.json"      # ne mémorise QUE les échecs (basename -> null)
+    REPORT_PATH = DATA / "img-a-completer.md"
+
+
+configure()
 
 USER_AGENT = "carnet-slovaquie/1.0 (usage personnel, sans contact public)"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
@@ -357,7 +366,9 @@ def main():
     parser.add_argument("--list", action="store_true", help="liste sans requêter le réseau")
     parser.add_argument("--pause", type=float, default=DEFAULT_PAUSE, help=f"secondes entre deux requêtes (défaut {DEFAULT_PAUSE})")
     parser.add_argument("--interactive", action="store_true", help="reprend les échecs un par un en fin de passe")
+    add_data_argument(parser)
     args = parser.parse_args()
+    configure(args.data)
     retry_failed = args.force or args.retry_failed
 
     fiches = load_all_fiches()
@@ -375,7 +386,7 @@ def main():
         nonlocal done, skipped_has_image, skipped_failed, failed
         basename = fiche["basename"]
         header = fiche["header"]
-        path = MD_DIR / f"{basename}.md"
+        path = tmd2html.MD_DIR / f"{basename}.md"
 
         if has_image(fiche):
             skipped_has_image += 1

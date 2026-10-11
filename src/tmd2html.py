@@ -11,6 +11,7 @@ Lit  : md/*.md, md/etapes.txt
 Écrit: html/*.html (jamais retouché à la main)
 """
 
+import argparse
 import json
 import os
 import re
@@ -19,12 +20,36 @@ from pathlib import Path
 
 # ROOT = moteur (src/, icons/, service-worker.js, html/ généré).
 # DATA = dépôt de données (md/, pages/, img/, manifest.json, caches).
-# Par défaut data/ à la racine du moteur ; surchargeable avec CARNET_DATA.
+# Ordre de résolution : option --data, puis $CARNET_DATA, puis <moteur>/data.
 ROOT = Path(__file__).resolve().parent.parent
-DATA = Path(os.environ.get("CARNET_DATA", ROOT / "data")).resolve()
-MD_DIR = DATA / "md"
 HTML_DIR = ROOT / "html"
-PAGES_DIR = DATA / "pages"
+
+DATA = MD_DIR = PAGES_DIR = GEOCACHE_PATH = None   # fixés par set_data_dir()
+
+
+def resolve_data_dir(value=None):
+    """Dossier des données : valeur explicite, sinon $CARNET_DATA, sinon <moteur>/data."""
+    return Path(value or os.environ.get("CARNET_DATA") or ROOT / "data").expanduser().resolve()
+
+
+def set_data_dir(value=None):
+    """Fixe les chemins dérivés des données et renvoie le dossier retenu."""
+    global DATA, MD_DIR, PAGES_DIR, GEOCACHE_PATH
+    DATA = resolve_data_dir(value)
+    MD_DIR = DATA / "md"
+    PAGES_DIR = DATA / "pages"
+    GEOCACHE_PATH = DATA / "geocache.json"
+    return DATA
+
+
+def add_data_argument(parser):
+    parser.add_argument(
+        "-d", "--data", metavar="DIR",
+        help="dossier des données (défaut : $CARNET_DATA, sinon <moteur>/data)",
+    )
+
+
+set_data_dir()
 
 
 def read_static_fragment(name):
@@ -261,6 +286,12 @@ def parse_fiche(path):
 
 
 def load_all_fiches():
+    if not MD_DIR.is_dir():
+        raise SystemExit(
+            f"Dossier de données introuvable : {MD_DIR}\n"
+            "Indique-le avec --data DIR, ou avec la variable CARNET_DATA, "
+            "ou clone les données dans <moteur>/data."
+        )
     fiches = {}
     for path in sorted(MD_DIR.glob("*.md")):
         f = parse_fiche(path)
@@ -289,8 +320,6 @@ def img_src(path):
 # ----------------------------------------------------------------------
 # Géolocalisation (cache produit par geocode.py) et cartes Leaflet
 # ----------------------------------------------------------------------
-
-GEOCACHE_PATH = DATA / "geocache.json"
 
 
 def load_geocache():
@@ -1263,6 +1292,11 @@ def render_admin2(fiches, etape_order, etape_compositions):
 # ----------------------------------------------------------------------
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    add_data_argument(parser)
+    args = parser.parse_args()
+    set_data_dir(args.data)
+
     HTML_DIR.mkdir(exist_ok=True)
     fiches = load_all_fiches()
     etape_order = load_etapes_order()
