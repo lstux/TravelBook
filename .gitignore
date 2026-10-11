@@ -1,0 +1,15 @@
+# Sortie générée par le build (jamais éditée à la main)
+html/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Système / éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
