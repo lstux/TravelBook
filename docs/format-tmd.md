@@ -187,11 +187,25 @@ Champ libre, non contraignant : sert uniquement à regrouper les fiches pas enco
 
 ---
 
+## 6bis. L'agenda (page générée)
+
+`agenda.html` est construit à partir des étapes : chaque section `== ...` d'une étape devient un jour, dans l'ordre de `etapes.txt`. Les sections dont le titre commence par `Extras`, `Extension`, `Petites`, `Secteur` ou `Option` ne sont pas des jours : leurs lieux sont proposés en option à la fin du dernier jour de l'étape.
+
+- `-> Lieu_...` : le programme du jour. Durée de visite : champ `durée-visite` de la fiche (`45min`, `2h`, `1h30`), sinon `durée` du bloc `# rando`, sinon 1h30 (affichée « ~ »).
+- `-> Dodo_...` : l'hébergement. Le premier est « prévu », les autres sont des alternatives, avec les `+ plan-B ->` de la fiche Dodo.
+- `-> Table_...` de l'étape : proposés pour le repas de midi.
+- `+ à goûter -> Specialite_...` sur l'étape : rappelé dans chaque jour.
+- Les trajets sont estimés à vol d'oiseau (× 1,35, 55 km/h) à partir des coordonnées de `geocache.json` et du champ `gps` de l'étape.
+
+Dans le navigateur : la date de départ, les lieux décochés, les extras ajoutés et le choix du repas sont mémorisés localement (localStorage).
+
+---
+
 ## 7. Référence rapide par famille
 
 | Famille | Champs d'en-tête typiques | Blocs `#` |
 |---|---|---|
-| **Lieu** | `région`, `type`, `famille-ok` (`facile`/`moyen`/`à-éviter`), `étapes-candidates` | `rando` |
+| **Lieu** | `région`, `type`, `famille-ok` (`facile`/`moyen`/`à-éviter`), `étapes-candidates`, `durée-visite` (`45min`, `2h`, `1h30` — utilisée par l'agenda, 1h30 par défaut) | `rando` |
 | **Dodo** | `région`, `type`, `gps`, `compatible`, `confort-global` (`sommaire`/`moyen`/`élevé`) | `confort` |
 | **Specialite** | `catégorie`, `région-origine` | — |
 | **Table** | `région`, `type`, `prix` (`€`/`€€`/`€€€`) | — |

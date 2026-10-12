@@ -68,6 +68,7 @@ TABS = [
     ("pays.html", "Pays", "flag"),
     ("bibliotheque.html", "Bibliothèque", "book"),
     ("brouillon.html", "Brouillon", "notes"),
+    ("agenda.html", "Agenda", "calendar"),
     ("pratique.html", "Pratique", "check"),
 ]
 
@@ -76,6 +77,7 @@ ICONS = {
     "flag": '<path d="M6 3v18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M6 4h12l-3 3.5L18 11H6" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linejoin="round"/>',
     "book": '<path d="M4 5c2-1 5-1 7 0v14c-2-1-5-1-7 0V5zM20 5c-2-1-5-1-7 0v14c2-1 5-1 7 0V5z" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linejoin="round"/>',
     "notes": '<path d="M6 4h9l4 4v12H6V4z" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linejoin="round"/><path d="M9 12h7M9 16h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    "calendar": '<rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M4 10h16M9 3v4M15 3v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
     "check": '<path d="M5 13l4 4 10-10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
 }
 
@@ -932,6 +934,170 @@ def render_carnet(fiches, etape_order):
 
 
 # ----------------------------------------------------------------------
+# Agenda : le programme jour par jour, à partir des étapes et de leurs lieux
+# ----------------------------------------------------------------------
+
+# Sections d'une étape qui ne sont pas des jours à part entière : leurs lieux
+# deviennent des "extras" proposés en option à la fin du dernier jour.
+EXTRA_SECTION = re.compile(r"^(extras?|extension|petites?|secteur|option)", re.I)
+
+AGENDA_BUDGET_MIN = 8 * 60       # temps de visite + conduite d'une journée
+AGENDA_DEFAULT_VISIT_MIN = 90    # durée supposée si la fiche n'en donne pas
+AGENDA_DETOUR = 1.35             # route / vol d'oiseau
+AGENDA_SPEED_KMH = 55            # vitesse moyenne (routes de montagne comprises)
+
+
+def parse_duration_min(text):
+    """'2h', '1h30', '45 min', '3h30-4h30', '1-2h' -> minutes (borne haute)."""
+    if not text:
+        return None
+    last = re.split(r"[-–]", text.lower())[-1].strip()
+    m = re.search(r"(\d+)\s*h\s*(\d+)?", last)
+    if m:
+        return int(m.group(1)) * 60 + int(m.group(2) or 0)
+    m = re.search(r"(\d+)\s*(?:min|mn)", last)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def parse_gps(text):
+    try:
+        lat, lon = [float(x) for x in text.split(",")[:2]]
+        return [lat, lon]
+    except (ValueError, AttributeError):
+        return None
+
+
+def visit_minutes(fiche):
+    """(minutes, estimée?) pour un lieu : durée-visite, sinon durée de rando."""
+    d = parse_duration_min(fiche["header"].get("durée-visite", ""))
+    if d:
+        return d, False
+    for el in fiche["elements"]:
+        if el["type"] == "chiffre" and el["name"] == "rando":
+            d = parse_duration_min(el["attrs"].get("durée", ""))
+            if d:
+                return d, False
+    return AGENDA_DEFAULT_VISIT_MIN, True
+
+
+def _ref(fiches, name):
+    f = fiches[name]
+    return {"id": name, "titre": f["header"].get("titre", name), "href": f"{name}.html"}
+
+
+def build_agenda_data(fiches, etape_order):
+    days = []
+    prev_base = prev_titre = None
+    for etape_name in etape_order:
+        et = fiches.get(etape_name)
+        if not et:
+            continue
+        base = parse_gps(et["header"].get("gps", "")) or (
+            [et["lat"], et["lon"]] if et.get("lat") is not None else None)
+        etape_titre = et["header"].get("titre", etape_name)
+
+        # Sections de l'étape : (libellé, [cibles])
+        sections = []
+        for el in et["elements"]:
+            if el["type"] == "day":
+                sections.append([el["label"], []])
+            elif el["type"] == "link":
+                if not sections:
+                    sections.append(["", []])
+                sections[-1][1].append(el["target"])
+        all_targets = [t for _, ts in sections for t in ts]
+        tables = []
+        for t in all_targets:
+            if t.startswith("Table_") and t in fiches:
+                r = _ref(fiches, t)
+                r["type"] = fiches[t]["header"].get("type", "")
+                r["prix"] = fiches[t]["header"].get("prix", "")
+                tables.append(r)
+        gouter = []
+        for el in et["elements"]:
+            if el["type"] == "field-link" and el["label"].lower().startswith("à goûter"):
+                gouter += [_ref(fiches, t) for t in el["targets"] if t in fiches]
+
+        def make_lieu(t):
+            f = fiches[t]
+            minutes, est = visit_minutes(f)
+            r = _ref(fiches, t)
+            r.update(type=f["header"].get("type", ""), lat=f.get("lat"), lon=f.get("lon"),
+                     min=minutes, est=est, famille=f["header"].get("famille-ok", ""))
+            return r
+
+        def make_dodo(t):
+            r = _ref(fiches, t)
+            r["type"] = fiches[t]["header"].get("type", "")
+            r["planB"] = [
+                _ref(fiches, x) for el in fiches[t]["elements"]
+                if el["type"] == "field-link" and el["label"].lower() == "plan-b"
+                for x in el["targets"] if x in fiches
+            ]
+            return r
+
+        etape_days = []
+        extras = []
+        extra_dodos = []
+        for label, targets in sections:
+            targets = [t for t in targets if t in fiches]
+            lieux = [make_lieu(t) for t in targets if t.startswith("Lieu_")]
+            dodos = [make_dodo(t) for t in targets if t.startswith("Dodo_")]
+            if EXTRA_SECTION.match(label) and etape_days:
+                extras += lieux
+                extra_dodos += dodos
+                continue
+            etape_days.append({"label": label or etape_titre, "lieux": lieux, "dodos": dodos})
+        if not etape_days:
+            continue
+        etape_days[-1]["extras"] = extras
+
+        # Hébergement : à défaut, celui du jour précédent (même étape)
+        last_dodos = next((d["dodos"] for d in etape_days if d["dodos"]), extra_dodos)
+        for d in etape_days:
+            if d["dodos"]:
+                last_dodos = d["dodos"]
+            else:
+                d["dodos"] = last_dodos
+
+        for i, d in enumerate(etape_days):
+            d.setdefault("extras", [])
+            d.update(
+                id=f"j{len(days) + 1}", etape=etape_titre, etapeHref=f"{etape_name}.html",
+                base=base, tables=tables, gouter=gouter,
+                depart=prev_base if i == 0 else None,
+                departLabel=prev_titre if i == 0 else None,
+            )
+            days.append(d)
+        prev_base, prev_titre = base, etape_titre
+
+    return {"budget": AGENDA_BUDGET_MIN, "detour": AGENDA_DETOUR,
+            "speed": AGENDA_SPEED_KMH, "days": days}
+
+
+def render_agenda(fiches, etape_order):
+    data = build_agenda_data(fiches, etape_order)
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    body = f"""<section id="agenda" class="agenda">
+  <div class="agenda-controls">
+    <label>Départ le <input type="date" id="agenda-start"></label>
+    <button type="button" id="agenda-today" class="agenda-btn">Aujourd'hui</button>
+  </div>
+  <nav id="agenda-days" class="agenda-days" aria-label="Jours du voyage"></nav>
+  <div id="agenda-day"></div>
+  <noscript><p>L'agenda a besoin de JavaScript.</p></noscript>
+</section>
+<script>window.AGENDA = {payload};</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../src/app.js"></script>
+<script src="../src/agenda.js"></script>"""
+    return page_shell("", "Programme du voyage", "Agenda", None, body,
+                      active_tab="agenda.html", include_map=True)
+
+
+# ----------------------------------------------------------------------
 # Vue Pays (intro + géographie + histoire, à partir des fiches Culture)
 # ----------------------------------------------------------------------
 
@@ -1330,6 +1496,7 @@ def main():
     (HTML_DIR / "pays.html").write_text(render_pays(fiches, etape_order), encoding="utf-8")
     (HTML_DIR / "bibliotheque.html").write_text(render_bibliotheque(fiches), encoding="utf-8")
     (HTML_DIR / "brouillon.html").write_text(render_brouillon(fiches), encoding="utf-8")
+    (HTML_DIR / "agenda.html").write_text(render_agenda(fiches, etape_order), encoding="utf-8")
     (HTML_DIR / "pratique.html").write_text(render_pratique(), encoding="utf-8")
     (HTML_DIR / "admin.html").write_text(render_admin(fiches, etape_order, etape_compositions), encoding="utf-8")
     (HTML_DIR / "admin2.html").write_text(render_admin2(fiches, etape_order, etape_compositions), encoding="utf-8")
