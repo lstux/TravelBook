@@ -1,6 +1,6 @@
 // Service worker — Poznávačka (carnet de voyage Slovaquie)
 // Placé à la racine du déploiement (à côté de index.html, html/, src/,
-// img/) pour que son scope naturel couvre tout /slovakia/ sans avoir
+// img/) pour que son scope naturel couvre tout le site sans avoir
 // besoin d'un en-tête Service-Worker-Allowed côté serveur.
 //
 // Stratégie : precache du "noyau" (shell) à l'install, puis cache-first +
@@ -9,8 +9,10 @@
 // dizaines de fiches générées par tmd2html.py : tout ce que tu visites
 // une fois reste ensuite disponible hors-ligne.
 
-const CACHE_VERSION = "slovakia-v1";
-const SCOPE = "/slovakia/";
+const CACHE_VERSION = "slovakia-v2";
+// Le scope est déduit de l'emplacement du service worker : le site peut donc
+// vivre sous n'importe quel préfixe (/slovakia/, /TravelBook-Slovakia/, racine...).
+const SCOPE = new URL("./", self.location).pathname;
 
 // Fichiers indispensables au démarrage de l'app — noms réels d'après
 // l'archive du 12/09/2026 (racine + html/ + src/).
@@ -59,7 +61,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
 
-  // On ne gère que le GET, même origine, et uniquement sous /slovakia/
+  // On ne gère que le GET, même origine, et uniquement sous le scope du site
   if (req.method !== "GET" || !req.url.startsWith(self.location.origin)) {
     return;
   }

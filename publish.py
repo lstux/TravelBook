@@ -224,6 +224,28 @@ def fix_remote_perms(cfg, items):
         ssh(cfg, "\n".join(script) + "\ntrue")
 
 
+def export(data, dest):
+    """Assemble le site complet dans un dossier local (GitHub Pages, tests...)."""
+    dest = Path(dest).expanduser().resolve()
+    step(f"Export du site dans {dest}")
+    dest.mkdir(parents=True, exist_ok=True)
+    ignore = shutil.ignore_patterns(*[b for b in BUILD_SCRIPTS], "__pycache__")
+    for item in deploy_items(data):
+        if not item.source.exists():
+            step(f"{item.label} : absent, ignoré")
+            continue
+        target = dest / item.dest
+        if item.is_dir:
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(item.source, target,
+                            ignore=ignore if item.dest == "src" else None)
+        else:
+            shutil.copy2(item.source, target)
+    (dest / ".nojekyll").touch()
+    step("Export terminé")
+
+
 def deploy(cfg, data, dry_run):
     items = []
     for item in deploy_items(data):
@@ -260,6 +282,8 @@ def parse_args(argv=None):
                         help="fichier de configuration (défaut : publish.conf)")
     parser.add_argument("-n", "--dry-run", action="store_true",
                         help="construit en local mais simule le déploiement")
+    parser.add_argument("--export", metavar="DIR",
+                        help="assemble le site dans DIR au lieu de le déployer (GitHub Pages)")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--no-build", action="store_true",
                       help="déploie html/ tel quel, sans reconvertir")
@@ -271,7 +295,7 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     building = not args.no_build
-    deploying = not args.build_only
+    deploying = not (args.build_only or args.export)
     try:
         values = read_conf(args.config) if args.config.is_file() else {}
         cfg = load_config(args.config, values) if deploying else None
@@ -279,6 +303,8 @@ def main(argv=None):
         check_prereqs(deploying, building, data)
         if building:
             build(data)
+        if args.export:
+            export(data, args.export)
         if deploying:
             deploy(cfg, data, args.dry_run)
     except PublishError as err:
