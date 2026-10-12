@@ -136,6 +136,44 @@ document.addEventListener("DOMContentLoaded", () => {
 // Les styles associés (.map-embed.map-expanded, .map-expand-btn)
 // vivent dans style.css, pas ici.
 // ---------------------------------------------------------------
+// ---------------------------------------------------------------
+// Fonds de carte au choix. Le choix est mémorisé (localStorage) et
+// partagé entre toutes les cartes du site. Aucun fond ne demande de
+// clé d'API. Si le stockage est indisponible, on retombe sur OSM.
+// ---------------------------------------------------------------
+const BASE_LAYER_KEY = "carnet-fond-de-carte";
+
+function initBaseLayers(map) {
+  const osm = "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>";
+  const layers = {
+    "Plan (OSM)": L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: osm,
+    }),
+    "Relief (OpenTopoMap)": L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+      maxZoom: 17,
+      attribution: osm + ", SRTM | &copy; <a href='https://opentopomap.org'>OpenTopoMap</a> (CC-BY-SA)",
+    }),
+    "Satellite (Esri)": L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 19, attribution: "Tiles &copy; Esri, Maxar, Earthstar Geographics" }
+    ),
+    "Clair (Carto)": L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      maxZoom: 20, subdomains: "abcd",
+      attribution: osm + " &copy; <a href='https://carto.com/attributions'>CARTO</a>",
+    }),
+  };
+
+  let saved = null;
+  try { saved = localStorage.getItem(BASE_LAYER_KEY); } catch (e) { /* stockage indisponible */ }
+  const current = layers[saved] ? saved : "Plan (OSM)";
+  layers[current].addTo(map);
+
+  L.control.layers(layers, null, { position: "topright", collapsed: true }).addTo(map);
+  map.on("baselayerchange", (e) => {
+    try { localStorage.setItem(BASE_LAYER_KEY, e.name); } catch (err) { /* ignoré */ }
+  });
+}
+
 function initMapExpand(map, wrapId, btnId, getBounds) {
   const wrap = document.getElementById(wrapId);
   const btn = document.getElementById(btnId);

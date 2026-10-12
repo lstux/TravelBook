@@ -367,10 +367,8 @@ def render_map(map_id, markers, route=False):
 (function() {{
   var MARKERS = {data};
   var map = L.map('{map_id}');
-  L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
-  }}).addTo(map);
+  // Fonds de carte au choix (OSM, relief, satellite, clair) : voir app.js
+  initBaseLayers(map);
   var bounds = [];
   MARKERS.forEach(function(m) {{
     var marker = L.marker([m.lat, m.lon]).addTo(map);

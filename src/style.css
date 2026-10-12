@@ -513,6 +513,14 @@ figcaption {
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(38, 48, 43, 0.18);
+  /* Au-dessus des panneaux (400-700) et des contrôles (1000) de Leaflet,
+     sinon la carte recouvre le bouton, surtout en plein écran. */
+  z-index: 1100;
+}
+
+/* Le sélecteur de fond de carte se range sous le bouton agrandir */
+.map-embed .leaflet-top.leaflet-right .leaflet-control-layers {
+  margin-top: 54px;
 }
 
 /* État "dépliée" : plein écran, mobile d'abord */
@@ -530,9 +538,19 @@ figcaption {
   height: 100%;
 }
 
+/* Plein écran : on respecte l'encoche / la barre d'état des téléphones et
+   on agrandit la zone de clic. */
 .map-embed.map-expanded .map-expand-btn {
-  top: 14px;
-  right: 14px;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  width: 42px;
+  height: 42px;
+  font-size: 18px;
+}
+
+.map-embed.map-expanded .leaflet-top.leaflet-right .leaflet-control-layers {
+  margin-top: calc(66px + env(safe-area-inset-top, 0px));
+  margin-right: calc(10px + env(safe-area-inset-right, 0px));
 }
 
 /* PC : on garde une marge et les coins arrondis plutôt que le bord à bord
@@ -541,6 +559,11 @@ figcaption {
   .map-embed.map-expanded {
     padding: 24px;
     background: rgba(38, 48, 43, 0.55);
+  }
+  /* Le bouton est alors dans le coin de l'écran, hors de la carte :
+     le sélecteur de fonds reprend sa place en haut de la carte. */
+  .map-embed.map-expanded .leaflet-top.leaflet-right .leaflet-control-layers {
+    margin-top: 10px;
   }
   .map-embed.map-expanded .leaflet-map {
     height: 100%;
