@@ -197,7 +197,9 @@ Champ libre, non contraignant : sert uniquement à regrouper les fiches pas enco
 - `+ à goûter -> Specialite_...` sur l'étape : rappelé dans chaque jour.
 - Les trajets sont estimés à vol d'oiseau (× 1,35, 55 km/h) à partir des coordonnées de `geocache.json` et du champ `gps` de l'étape.
 
-Dans le navigateur : la date de départ, les lieux décochés, les extras ajoutés et le choix du repas sont mémorisés localement (localStorage).
+Dans le navigateur : la date de départ, les lieux retenus, le choix du repas et l'ordre du programme sont mémorisés localement (localStorage).
+
+Le programme d'un jour est une frise : la hauteur d'un bloc suit sa durée, et les heures se recalent en cascade quand on déplace un bloc (poignée `⠿`, ou flèches haut/bas au clavier). Le déjeuner (`M`) et le dodo (`D`) sont déplaçables comme les lieux. Un lieu coché à la main s'ajoute en fin de journée, avant le dodo.
 
 ---
 
