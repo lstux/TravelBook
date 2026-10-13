@@ -53,9 +53,12 @@
     return 2 * R * Math.asin(Math.sqrt(h));
   }
 
+  // Tout est compté au quart d'heure : un trajet de moins de 8 min est « sur place ».
+  function quarter(min) { return Math.round(min / 15) * 15; }
+
   function driveMin(a, b) {
     if (!a || !b) return 0;
-    return Math.round(km(a, b) * DATA.detour / DATA.speed * 60);
+    return quarter(km(a, b) * DATA.detour / DATA.speed * 60);
   }
 
   function fmt(min) {
@@ -93,8 +96,9 @@
       var leg = p ? driveMin(prev, p) : 0;
       t += leg; drive += leg;
       var arrive = t;
-      t += l.min; visit += l.min;
-      rows.push({ kind: "lieu", lieu: l, leg: leg, arrive: arrive, leave: t });
+      var stay = quarter(l.min) || 15;
+      t += stay; visit += stay;
+      rows.push({ kind: "lieu", lieu: l, leg: leg, arrive: arrive, leave: t, stay: stay });
       if (p) prev = p;
       if (!lunchDone && t >= LUNCH_AT) {
         rows.push({ kind: "repas", at: t });
@@ -175,8 +179,8 @@
   function lieuRow(day, l, extra, row) {
     var on = isOn(day, l, extra);
     var meta = [];
-    if (row && row.leg) meta.push("🚗 ~" + fmt(row.leg));
-    meta.push("visite " + (l.est ? "~" : "") + fmt(l.min));
+    if (row) meta.push(row.leg ? "🚗 ~" + fmt(row.leg) : "🚗 sur place");
+    meta.push("visite " + (l.est ? "~" : "") + fmt(row ? row.stay : (quarter(l.min) || 15)));
     if (l.famille === "à-éviter") meta.push("⚠ déconseillé aux enfants, non retenu par défaut");
     var times = '<span class="ag-time">' + (row ? clock(row.arrive) : "—") + "</span>";
     return '<li class="ag-stop' + (on ? "" : " off") + (extra ? " extra" : "") + '">' + times +
@@ -302,7 +306,7 @@
         : "") +
 
       '<h3>Programme</h3><ul class="ag-list">' + renderStops(day, pl) + "</ul>" +
-      '<p class="ag-hint">Décoche un lieu pour voir si la journée respire mieux. Les durées marquées « ~ » sont des estimations, les trajets sont à vol d\'oiseau + 35 %.</p>' +
+      '<p class="ag-hint">Décoche un lieu pour voir si la journée respire mieux. Les durées marquées « ~ » sont des estimations, les trajets sont à vol d\'oiseau + 35 %, le tout arrondi au quart d\'heure.</p>' +
       gouter +
       "<h3>Dodo</h3>" + renderSleep(day);
 
@@ -360,9 +364,18 @@
     initMapExpand(map, "ag-map-wrap", "ag-map-expand", function () { return pts; });
   }
 
+  var slide = "";   // "next" | "prev" : sens de l'animation du prochain affichage
+
   function render() {
     renderChips();
     renderDay();
+    var box = document.getElementById("agenda-day");
+    if (slide) {
+      box.classList.remove("slide-next", "slide-prev");
+      void box.offsetWidth;                      // relance l'animation
+      box.classList.add("slide-" + slide);
+      slide = "";
+    }
     try { history.replaceState(null, "", "#j" + (current + 1)); } catch (e) { /* ignoré */ }
     try { localStorage.setItem(KEY + "-last", String(current)); } catch (e) { /* ignoré */ }
   }
@@ -412,6 +425,18 @@
         save();
         renderDay();
       }
+    });
+
+    // Glisser à gauche/droite : jour suivant/précédent (voir swipe.js)
+    window.addEventListener("carnet:swipe", function (e) {
+      var dir = e.detail.dir;
+      var next = current + (dir === "next" ? 1 : -1);
+      if (!DAYS[next]) return;
+      e.preventDefault();
+      current = next;
+      slide = dir;
+      window.scrollTo(0, 0);
+      render();
     });
 
     // Jour d'ouverture : #jN > aujourd'hui > dernier consulté > J1

@@ -1184,3 +1184,13 @@ main {
 .ag-pin.bed span { background:var(--blaze); font-size:14px; }
 .ag-pin.start span { background:var(--ink-soft); font-size:10px; }
 .ag-pin.off span { background:#9aa39d; }
+
+/* Glissement d'un jour à l'autre (swipe) */
+@keyframes ag-in-next { from { opacity:0; transform:translateX(28px); } to { opacity:1; transform:none; } }
+@keyframes ag-in-prev { from { opacity:0; transform:translateX(-28px); } to { opacity:1; transform:none; } }
+#agenda-day.slide-next { animation:ag-in-next .22s ease-out; }
+#agenda-day.slide-prev { animation:ag-in-prev .22s ease-out; }
+@media (prefers-reduced-motion: reduce) { #agenda-day.slide-next, #agenda-day.slide-prev { animation:none; } }
+
+/* Fondu entre pages (navigateurs qui le gèrent, ignoré sinon) */
+@view-transition { navigation: auto; }

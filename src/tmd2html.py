@@ -439,6 +439,7 @@ def page_shell(theme, kicker, title, subtitle, body_html, active_tab, include_ma
 </div>
 {render_tabbar(active_tab)}
 <script src="../src/slovak.js"></script>
+<script src="../src/swipe.js"></script>
 <script>
 if ('serviceWorker' in navigator) {{
   navigator.serviceWorker.register('../service-worker.js');
