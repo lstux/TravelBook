@@ -73,9 +73,12 @@
 
   function pt(l) { return l.lat != null && l.lon != null ? [l.lat, l.lon] : null; }
 
+  // Un lieu « à éviter » avec des enfants est décoché par défaut, comme un extra.
+  function optional(l, extra) { return extra || l.famille === "à-éviter"; }
+
   function isOn(day, l, extra) {
     var k = day.id + ":" + l.id;
-    return extra ? !!state.on[k] : !state.off[k];
+    return optional(l, extra) ? !!state.on[k] : !state.off[k];
   }
 
   function plan(day) {
@@ -174,10 +177,10 @@
     var meta = [];
     if (row && row.leg) meta.push("🚗 ~" + fmt(row.leg));
     meta.push("visite " + (l.est ? "~" : "") + fmt(l.min));
-    if (l.famille === "à-éviter") meta.push("⚠ déconseillé aux enfants");
+    if (l.famille === "à-éviter") meta.push("⚠ déconseillé aux enfants, non retenu par défaut");
     var times = '<span class="ag-time">' + (row ? clock(row.arrive) : "—") + "</span>";
     return '<li class="ag-stop' + (on ? "" : " off") + (extra ? " extra" : "") + '">' + times +
-      '<label><input type="checkbox" data-lieu="' + esc(l.id) + '" data-extra="' + (extra ? 1 : 0) + '"' +
+      '<label><input type="checkbox" data-lieu="' + esc(l.id) + '" data-extra="' + (optional(l, extra) ? 1 : 0) + '"' +
       (on ? " checked" : "") + '> <a href="' + esc(l.href) + '">' + esc(l.titre) + "</a></label>" +
       '<small>' + esc(meta.join(" · ")) + (l.lat == null ? " · non géolocalisé" : "") + "</small></li>";
   }
