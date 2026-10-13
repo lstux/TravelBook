@@ -233,6 +233,11 @@ Ce script géocode les fiches `Lieu` et `Étape` via Nominatim/OpenStreetMap,
 met les résultats en cache dans `geocache.json` (jamais re-interrogé une
 fois en cache), puis `tmd2html.py` lit ce cache au prochain build.
 
+- `geocache-approx.json` (facultatif) place les fiches qui n'ont pas de lieu
+  précis (une soirée sans programme, une balade en bateau…) : `{"Lieu_x":
+  {"lat": 48.14, "lon": 17.10, "note": "centre-ville"}}`. Ces points ne
+  passent jamais devant ceux de `geocache.json` ; ils sont affichés en
+  pointillé avec la mention « emplacement approximatif ».
 - Sans `geocache.json`, ou pour une fiche non géocodée : pas de carte du
   tout sur cette page — dégradation gracieuse, pas de carte vide.
 - Un titre composé ("Danube & Most SNP") qui échoue en entier est retenté
