@@ -405,7 +405,7 @@ def render_tabbar(active):
     return f'<nav class="tabbar">{"".join(links)}</nav>'
 
 
-def page_shell(theme, kicker, title, subtitle, body_html, active_tab, include_map=False, hero="landscape", show_band=True):
+def page_shell(theme, kicker, title, subtitle, body_html, active_tab, include_map=False, hero="landscape", show_band=True, extra_head=""):
     leaflet_css = (
         '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">'
         if include_map else ""
@@ -425,6 +425,7 @@ def page_shell(theme, kicker, title, subtitle, body_html, active_tab, include_ma
 <title>{esc(title)} · Carnet Slovaquie</title>
 <link rel="stylesheet" href="../src/style.css">
 {leaflet_css}
+{extra_head}
 <link rel="manifest" href="../manifest.json">
 <link rel="icon" href="../icons/favicon.png">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
@@ -476,8 +477,11 @@ def render_thumb(fiche):
 
 def render_index_card(fiche, href, type_label):
     title = fiche["header"].get("titre", fiche["basename"])
+    geo = ""
+    if fiche.get("lat") is not None and fiche.get("lon") is not None:
+        geo = f' data-lat="{fiche["lat"]}" data-lon="{fiche["lon"]}"'
     return (
-        f'<a class="index-card" href="{href}">'
+        f'<a class="index-card" href="{href}"{geo}>'
         f'{render_thumb(fiche)}'
         f'<div class="index-card-body">'
         f'<div class="type">{esc(type_label)}</div>'
@@ -1187,21 +1191,70 @@ FAMILY_LABELS = {
 }
 
 
-def render_bibliotheque(fiches):
+MARKERCLUSTER_CSS = (
+    '<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">'
+)
+
+
+def render_library_map(fiches, etape_order):
+    """Carte de la bibliothèque : lieux regroupés en cercles (plugin
+    markercluster), étapes en épingles numérotées. Les données sont en JSON
+    dans la page ; le comportement (filtrage de la liste) est dans
+    src/library-map.js."""
+    lieux = [
+        {"titre": f["header"].get("titre", f["basename"]),
+         "href": f'{f["basename"]}.html',
+         "type": f["header"].get("type", ""),
+         "lat": f["lat"], "lon": f["lon"]}
+        for f in fiches.values()
+        if f["family"] == "Lieu" and f.get("lat") is not None and f.get("lon") is not None
+    ]
+    etapes = [m for m in build_etape_markers(fiches, etape_order) if m["lat"] is not None]
+    payload = json.dumps({"lieux": lieux, "etapes": etapes}, ensure_ascii=False).replace("</", "<\\/")
+    return f"""<div class="map-embed lib-map-wrap" id="lib-map-wrap">
+  <div id="lib-map" class="leaflet-map lib-map"></div>
+  <button type="button" class="map-expand-btn" id="lib-map-expand"
+    title="Agrandir la carte" aria-label="Agrandir la carte">⤢</button>
+</div>
+<p class="lib-legend"><span class="lib-dot lieu"></span> Lieux <span class="lib-dot etape"></span> Étapes ·
+  les cercles regroupent les lieux proches, zoome pour les voir. La liste suit la carte.</p>
+<p class="lib-count" id="lib-count" aria-live="polite"></p>
+<script>window.CARTE_BIBLIO = {payload};</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="../src/app.js"></script>
+<script src="../src/library-map.js"></script>"""
+
+
+def render_bibliotheque(fiches, etape_order):
+    """Fiches localisées : par famille, filtrées par la carte. Les autres
+    (dodos, tables, culture, lieux sans coordonnées) vont dans une section
+    « Sans position », toujours affichée."""
     sections = []
+    unplaced = []
     for fam in FAMILIES:
         items = [f for f in fiches.values() if f["family"] == fam]
-        if not items:
-            continue
         items.sort(key=lambda f: f["header"].get("titre", f["basename"]))
-        cards = [render_index_card(f, f'{f["basename"]}.html', kicker_for(f)) for f in items]
+        placed = [f for f in items if f.get("lat") is not None and f.get("lon") is not None]
+        unplaced += [f for f in items if f not in placed]
+        if not placed:
+            continue
+        cards = [render_index_card(f, f'{f["basename"]}.html', kicker_for(f)) for f in placed]
         sections.append(
             f'<div class="index-section"><h2>{esc(FAMILY_LABELS.get(fam, fam))}</h2>'
             f'<div class="index-grid">{"".join(cards)}</div></div>'
         )
+    if unplaced:
+        cards = [render_index_card(f, f'{f["basename"]}.html', kicker_for(f)) for f in unplaced]
+        sections.append(
+            f'<div class="index-section index-unplaced"><h2>Sans position sur la carte</h2>'
+            f'<p class="lib-hint">Pas de coordonnées : affichées en permanence.</p>'
+            f'<div class="index-grid">{"".join(cards)}</div></div>'
+        )
 
-    body = "".join(sections)
-    return page_shell("", "Toutes les fiches", "Bibliothèque", None, body, active_tab="bibliotheque.html")
+    body = render_library_map(fiches, etape_order) + "".join(sections)
+    return page_shell("", "Toutes les fiches", "Bibliothèque", None, body, active_tab="bibliotheque.html",
+                      include_map=True, extra_head=MARKERCLUSTER_CSS)
 
 
 # ----------------------------------------------------------------------
@@ -1495,7 +1548,7 @@ def main():
     carnet_html = render_carnet(fiches, etape_order)
     (HTML_DIR / "carnet.html").write_text(carnet_html, encoding="utf-8")
     (HTML_DIR / "pays.html").write_text(render_pays(fiches, etape_order), encoding="utf-8")
-    (HTML_DIR / "bibliotheque.html").write_text(render_bibliotheque(fiches), encoding="utf-8")
+    (HTML_DIR / "bibliotheque.html").write_text(render_bibliotheque(fiches, etape_order), encoding="utf-8")
     (HTML_DIR / "brouillon.html").write_text(render_brouillon(fiches), encoding="utf-8")
     (HTML_DIR / "agenda.html").write_text(render_agenda(fiches, etape_order), encoding="utf-8")
     (HTML_DIR / "pratique.html").write_text(render_pratique(), encoding="utf-8")

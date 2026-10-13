@@ -9,7 +9,7 @@
 // dizaines de fiches générées par tmd2html.py : tout ce que tu visites
 // une fois reste ensuite disponible hors-ligne.
 
-const CACHE_VERSION = "slovakia-v5";
+const CACHE_VERSION = "slovakia-v6";
 // Le scope est déduit de l'emplacement du service worker : le site peut donc
 // vivre sous n'importe quel préfixe (/slovakia/, /TravelBook-Slovakia/, racine...).
 const SCOPE = new URL("./", self.location).pathname;
