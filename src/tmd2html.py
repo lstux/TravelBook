@@ -34,11 +34,12 @@ def resolve_data_dir(value=None):
 
 def set_data_dir(value=None):
     """Fixe les chemins dérivés des données et renvoie le dossier retenu."""
-    global DATA, MD_DIR, PAGES_DIR, GEOCACHE_PATH
+    global DATA, MD_DIR, PAGES_DIR, GEOCACHE_PATH, GEOCACHE_APPROX_PATH
     DATA = resolve_data_dir(value)
     MD_DIR = DATA / "md"
     PAGES_DIR = DATA / "pages"
     GEOCACHE_PATH = DATA / "geocache.json"
+    GEOCACHE_APPROX_PATH = DATA / "geocache-approx.json"
     return DATA
 
 
@@ -333,11 +334,31 @@ def load_geocache():
         return {}
 
 
-def attach_coordinates(fiches, geocache):
+def load_geocache_approx():
+    """Points approximatifs (fiches sans lieu précis : une soirée, une balade
+    en bateau…), à part de geocache.json pour ne pas mélanger coordonnées
+    vérifiées et estimations. Format : {"Lieu_x": {"lat": .., "lon": .., "note": ".."}}."""
+    if not GEOCACHE_APPROX_PATH.exists():
+        return {}
+    try:
+        data = json.loads(GEOCACHE_APPROX_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def attach_coordinates(fiches, geocache, approx=None):
+    approx = approx or {}
     for basename, fiche in fiches.items():
         coords = geocache.get(basename)
+        fiche["approx"] = None
         if coords and len(coords) == 2:
             fiche["lat"], fiche["lon"] = coords
+            continue
+        a = approx.get(basename)
+        if isinstance(a, dict) and a.get("lat") is not None and a.get("lon") is not None:
+            fiche["lat"], fiche["lon"] = a["lat"], a["lon"]
+            fiche["approx"] = a.get("note") or "emplacement approximatif"
         else:
             fiche["lat"], fiche["lon"] = None, None
 
@@ -376,6 +397,7 @@ def render_map(map_id, markers, route=False):
     var marker = L.marker([m.lat, m.lon]).addTo(map);
     var html = '<div class="map-popup"><strong>' + m.titre + '</strong>';
     if (m.type) {{ html += '<div class="map-popup-type">' + m.type + '</div>'; }}
+    if (m.approx) {{ html += '<div class="map-popup-type">≈ Emplacement approximatif : ' + m.approx + '</div>'; }}
     if (m.href) {{ html += '<a href="' + m.href + '">Voir la fiche →</a>'; }}
     html += '</div>';
     marker.bindPopup(html);
@@ -833,6 +855,7 @@ def render_etape_page(fiche, fiches, etape_order):
                         "type": target_fiche["header"].get("type", ""),
                         "lat": target_fiche.get("lat"),
                         "lon": target_fiche.get("lon"),
+                        "approx": target_fiche.get("approx"),
                     })
             else:
                 day_buffer.append(
@@ -1205,7 +1228,7 @@ def render_library_map(fiches, etape_order):
         {"titre": f["header"].get("titre", f["basename"]),
          "href": f'{f["basename"]}.html',
          "type": f["header"].get("type", ""),
-         "lat": f["lat"], "lon": f["lon"]}
+         "lat": f["lat"], "lon": f["lon"], "approx": f.get("approx")}
         for f in fiches.values()
         if f["family"] == "Lieu" and f.get("lat") is not None and f.get("lon") is not None
     ]
@@ -1216,7 +1239,7 @@ def render_library_map(fiches, etape_order):
   <button type="button" class="map-expand-btn" id="lib-map-expand"
     title="Agrandir la carte" aria-label="Agrandir la carte">⤢</button>
 </div>
-<p class="lib-legend"><span class="lib-dot lieu"></span> Lieux <span class="lib-dot etape"></span> Étapes ·
+<p class="lib-legend"><span class="lib-dot lieu"></span> Lieux <span class="lib-dot approx"></span> Approximatif <span class="lib-dot etape"></span> Étapes ·
   les cercles regroupent les lieux proches, zoome pour les voir. La liste suit la carte.</p>
 <p class="lib-count" id="lib-count" aria-live="polite"></p>
 <script>window.CARTE_BIBLIO = {payload};</script>
@@ -1520,7 +1543,7 @@ def main():
     etape_order = load_etapes_order()
 
     geocache = load_geocache()
-    attach_coordinates(fiches, geocache)
+    attach_coordinates(fiches, geocache, load_geocache_approx())
     if not geocache:
         print(
             "Info : aucun geocache.json trouvé — les cartes Leaflet resteront "

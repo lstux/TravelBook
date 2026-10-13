@@ -25,6 +25,7 @@
   function popup(m) {
     return '<div class="map-popup"><strong>' + esc(m.titre) + "</strong>" +
       (m.type ? '<div class="map-popup-type">' + esc(m.type) + "</div>" : "") +
+      (m.approx ? '<div class="map-popup-type">≈ Emplacement approximatif : ' + esc(m.approx) + "</div>" : "") +
       '<a href="' + esc(m.href) + '">Voir la fiche →</a></div>';
   }
 
@@ -54,7 +55,7 @@
   });
   DATA.lieux.forEach(function (m) {
     var mk = L.marker([m.lat, m.lon], {
-      icon: L.divIcon({ className: "lib-pin lieu", html: "<span></span>", iconSize: [16, 16], iconAnchor: [8, 8] })
+      icon: L.divIcon({ className: "lib-pin lieu" + (m.approx ? " approx" : ""), html: "<span></span>", iconSize: [16, 16], iconAnchor: [8, 8] })
     });
     mk.bindPopup(popup(m));
     lieux.addLayer(mk);
