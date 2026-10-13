@@ -1,11 +1,15 @@
-/* Agenda — le programme du voyage jour par jour.
+/* Agenda — le programme du voyage jour par jour, sous forme de frise.
  *
  * Les données (window.AGENDA) sont préparées au build par tmd2html.py à partir
  * des étapes et de leurs lieux. Ici on ne fait que de l'affichage et du calcul
  * côté navigateur : tout reste utilisable hors ligne, sur place.
  *
- * Réglages de l'utilisateur (date de départ, lieux décochés, extras ajoutés,
- * choix du repas) : localStorage, sans jamais bloquer si l'accès échoue.
+ * Le programme d'une journée est une liste ordonnée de clés :
+ *   "l:<id>" = un lieu, "M" = le déjeuner, "D" = le dodo.
+ * Heures, trajets, jauge, carte et itinéraire se calculent à partir de cette liste.
+ *
+ * Réglages de l'utilisateur (date de départ, lieux retenus, ordre, choix du
+ * repas) : localStorage, sans jamais bloquer si l'accès échoue.
  */
 (function () {
   "use strict";
@@ -14,13 +18,20 @@
   var DAYS = DATA.days;
   var KEY = "carnet-agenda";
   var START_TIME = 9 * 60;      // départ indicatif, 9h00
-  var LUNCH_AT = 12 * 60;       // le déjeuner s'insère après le 1er lieu qui finit après midi
+  var LUNCH_AT = 12 * 60;       // par défaut, le déjeuner suit le 1er lieu qui finit après midi
   var LUNCH_MIN = 60;           // pause déjeuner (hors budget)
+  var DODO_MIN = 30;            // hauteur indicative du bloc Dodo (hors budget)
   var MAX_WAYPOINTS = 9;        // limite de Google Maps pour une URL d'itinéraire
+  var SCALE = 1.1;              // px par minute dans la frise
+  var MIN_H = 44;               // hauteur minimale d'un bloc, pour que le texte tienne
+  var MEAL_H = 66;
+  var LEG_MIN_H = 20;
 
   var state = load();
   var current = 0;
   var map = null;
+  var drag = null;
+  var pendingFocus = null;
 
   function load() {
     try {
@@ -28,9 +39,10 @@
       s.off = s.off || {};
       s.on = s.on || {};
       s.meal = s.meal || {};
+      s.order = s.order || {};
       return s;
     } catch (e) {
-      return { off: {}, on: {}, meal: {} };
+      return { off: {}, on: {}, meal: {}, order: {} };
     }
   }
 
@@ -84,31 +96,107 @@
     return optional(l, extra) ? !!state.on[k] : !state.off[k];
   }
 
-  function plan(day) {
-    var stops = [];
-    day.lieux.forEach(function (l) { if (isOn(day, l, false)) stops.push(l); });
-    day.extras.forEach(function (l) { if (isOn(day, l, true)) stops.push(l); });
+  // Tous les lieux candidats du jour : d'abord ceux de la journée, puis les extras.
+  function cands(day) {
+    return day.lieux.map(function (l) { return { l: l, extra: false }; })
+      .concat(day.extras.map(function (l) { return { l: l, extra: true }; }));
+  }
 
-    var start = day.depart || day.base;
-    var rows = [], t = START_TIME, prev = start, drive = 0, visit = 0, lunchDone = false;
-    stops.forEach(function (l) {
+  function lieuByKey(day) {
+    var m = {};
+    cands(day).forEach(function (c) { m["l:" + c.l.id] = c.l; });
+    return m;
+  }
+
+  function onKeys(day) {
+    var s = {};
+    cands(day).forEach(function (c) { if (isOn(day, c.l, c.extra)) s["l:" + c.l.id] = true; });
+    return s;
+  }
+
+  // « Fin de journée » : après le dernier lieu, avant le dodo.
+  function insertLate(keys, k) {
+    var last = -1;
+    keys.forEach(function (x, i) { if (x.indexOf("l:") === 0) last = i; });
+    if (last >= 0) { keys.splice(last + 1, 0, k); return; }
+    var d = keys.indexOf("D");
+    keys.splice(d < 0 ? keys.length : d, 0, k);
+  }
+
+  // Déroule le programme dans l'ordre donné : heures, trajets, jauge.
+  // Chaque bloc décale tous ceux qui suivent.
+  function timing(day, keys) {
+    var byKey = lieuByKey(day), base = day.base;
+    var start = day.depart || base;
+    var t = START_TIME, prev = start, drive = 0, visit = 0;
+    var rows = [], stops = [];
+    keys.forEach(function (k) {
+      if (k === "M") {
+        rows.push({ kind: "repas", key: k, at: t, dur: LUNCH_MIN });
+        t += LUNCH_MIN;
+        return;
+      }
+      if (k === "D") {
+        var legD = driveMin(prev, base);
+        t += legD; drive += legD;
+        rows.push({ kind: "dodo", key: k, at: t, leg: legD, dur: DODO_MIN });
+        prev = base || prev;
+        return;
+      }
+      var l = byKey[k];
+      if (!l) return;
       var p = pt(l);
       var leg = p ? driveMin(prev, p) : 0;
       t += leg; drive += leg;
-      var arrive = t;
-      var stay = quarter(l.min) || 15;
+      var arrive = t, stay = quarter(l.min) || 15;
       t += stay; visit += stay;
-      rows.push({ kind: "lieu", lieu: l, leg: leg, arrive: arrive, leave: t, stay: stay });
+      rows.push({ kind: "lieu", key: k, lieu: l, leg: leg, arrive: arrive, leave: t, stay: stay });
+      stops.push(l);
       if (p) prev = p;
-      if (!lunchDone && t >= LUNCH_AT) {
-        rows.push({ kind: "repas", at: t });
-        t += LUNCH_MIN; lunchDone = true;
-      }
     });
-    var back = driveMin(prev, day.base);
-    t += back; drive += back;
-    return { stops: stops, rows: rows, drive: drive, visit: visit, back: back, end: t,
-      total: drive + visit, start: start, lunchDone: lunchDone };
+    var back = driveMin(prev, base);
+    drive += back; t += back;
+    return { start: start, rows: rows, stops: stops, drive: drive, visit: visit,
+      back: back, end: t, total: drive + visit };
+  }
+
+  // Programme par défaut : lieux retenus dans l'ordre, déjeuner après le 1er lieu
+  // qui finit après midi, dodo à la fin.
+  function defaultKeys(day) {
+    var on = onKeys(day), keys = [];
+    cands(day).forEach(function (c) { var k = "l:" + c.l.id; if (on[k]) keys.push(k); });
+    var at = null;
+    timing(day, keys).rows.forEach(function (r) {
+      if (at === null && r.kind === "lieu" && r.leave >= LUNCH_AT) at = r.key;
+    });
+    keys.splice(at === null ? keys.length : keys.indexOf(at) + 1, 0, "M");
+    keys.push("D");
+    return keys;
+  }
+
+  // Programme effectif : l'ordre enregistré, réconcilié avec les lieux retenus.
+  function orderKeys(day) {
+    var saved = state.order[day.id];
+    if (!saved) return defaultKeys(day);
+    var on = onKeys(day), seen = {}, keys = [];
+    saved.forEach(function (k) {
+      if (seen[k]) return;
+      if (k === "M" || k === "D" || on[k]) { keys.push(k); seen[k] = true; }
+    });
+    if (keys.indexOf("D") < 0) keys.push("D");
+    if (keys.indexOf("M") < 0) keys.splice(keys.indexOf("D"), 0, "M");
+    cands(day).forEach(function (c) {
+      var k = "l:" + c.l.id;
+      if (on[k] && !seen[k]) { insertLate(keys, k); seen[k] = true; }
+    });
+    return keys;
+  }
+
+  function plan(day) {
+    var keys = orderKeys(day);
+    var pl = timing(day, keys);
+    pl.keys = keys;
+    return pl;
   }
 
   function verdict(total) {
@@ -176,52 +264,15 @@
     }
   }
 
-  function lieuRow(day, l, extra, row) {
-    var on = isOn(day, l, extra);
-    var meta = [];
-    if (row) meta.push(row.leg ? "🚗 ~" + fmt(row.leg) : "🚗 sur place");
-    meta.push("visite " + (l.est ? "~" : "") + fmt(row ? row.stay : (quarter(l.min) || 15)));
-    if (l.famille === "à-éviter") meta.push("⚠ déconseillé aux enfants, non retenu par défaut");
-    var times = '<span class="ag-time">' + (row ? clock(row.arrive) : "—") + "</span>";
-    return '<li class="ag-stop' + (on ? "" : " off") + (extra ? " extra" : "") + '">' + times +
-      '<label><input type="checkbox" data-lieu="' + esc(l.id) + '" data-extra="' + (optional(l, extra) ? 1 : 0) + '"' +
-      (on ? " checked" : "") + '> <a href="' + esc(l.href) + '">' + esc(l.titre) + "</a></label>" +
-      '<small>' + esc(meta.join(" · ")) + (l.lat == null ? " · non géolocalisé" : "") + "</small></li>";
+  function lieuBody(row) {
+    var l = row.lieu;
+    var meta = "visite " + (l.est ? "~" : "") + fmt(row.stay);
+    if (l.lat == null) meta += " · non géolocalisé";
+    return '<div class="ag-txt"><span class="ag-time">' + clock(row.arrive) + " – " + clock(row.leave) + "</span>" +
+      '<a href="' + esc(l.href) + '">' + esc(l.titre) + "</a><small>" + esc(meta) + "</small></div>";
   }
 
-  function renderStops(day, pl) {
-    var rowsByLieu = {};
-    pl.rows.forEach(function (r) { if (r.kind === "lieu") rowsByLieu[r.lieu.id] = r; });
-    var html = "";
-    if (day.depart) {
-      html += '<li class="ag-note">🚗 Départ de ' + esc(day.departLabel || "l'étape précédente") +
-        " — le trajet est compté dans la jauge.</li>";
-    }
-    var seq = pl.rows.slice();
-    day.lieux.forEach(function (l) {
-      var r = rowsByLieu[l.id];
-      html += lieuRow(day, l, false, r);
-      if (r) html += lunchAfter(day, seq, r);
-    });
-    if (day.extras.length) {
-      html += '<li class="ag-sep">En option, si le temps le permet</li>';
-      day.extras.forEach(function (l) {
-        var r = rowsByLieu[l.id];
-        html += lieuRow(day, l, true, r);
-        if (r) html += lunchAfter(day, seq, r);
-      });
-    }
-    if (!pl.lunchDone) html += mealRow(day, null);
-    return html;
-  }
-
-  function lunchAfter(day, seq, r) {
-    var i = seq.indexOf(r);
-    if (i >= 0 && seq[i + 1] && seq[i + 1].kind === "repas") return mealRow(day, seq[i + 1].at);
-    return "";
-  }
-
-  function mealRow(day, at) {
+  function mealBody(day, pl, row) {
     var cur = state.meal[day.id] || "";
     var opts = [
       ["", "On verra bien"],
@@ -238,21 +289,64 @@
       var t = day.tables.filter(function (x) { return "T:" + x.id === cur; })[0];
       if (t) link = ' <a href="' + esc(t.href) + '">voir la fiche</a>';
     }
-    // Recherche de restaurants autour de l'endroit où l'on sera à midi
-    var near = null;
-    var pl = plan(day);
-    for (var i = 0; i < pl.rows.length; i++) {
-      if (pl.rows[i].kind === "lieu" && pt(pl.rows[i].lieu)) {
-        near = pt(pl.rows[i].lieu);
-        if (pl.rows[i].leave >= LUNCH_AT) break;
-      }
+    // Restaurants autour de l'endroit où l'on se trouve juste avant le déjeuner
+    var near = null, idx = pl.rows.indexOf(row);
+    for (var i = idx - 1; i >= 0 && !near; i--) {
+      if (pl.rows[i].kind === "lieu" && pt(pl.rows[i].lieu)) near = pt(pl.rows[i].lieu);
     }
+    if (!near && pl.start) near = pl.start;
     var search = near
       ? ' · <a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
       encodeURIComponent("restaurant près de " + near[0] + "," + near[1]) + '">restaurants autour</a>'
       : "";
-    return '<li class="ag-meal"><span class="ag-time">' + (at ? clock(at) : "") + "</span>" +
-      "<div>🍽 <b>Midi</b> " + sel + link + search + "</div></li>";
+    return '<div class="ag-txt"><span class="ag-time">' + clock(row.at) + " – " + clock(row.at + row.dur) + "</span>" +
+      "<div>🍽 <b>Midi</b> " + sel + link + search + "</div></div>";
+  }
+
+  function dodoBody(day, row) {
+    var d = day.dodos[0];
+    return '<div class="ag-txt"><span class="ag-time">' + clock(row.at) + "</span>" +
+      "<div>🛏 <b>Dodo</b> " + (d ? '<a href="' + esc(d.href) + '">' + esc(d.titre) + "</a>" : "non renseigné") +
+      "</div></div>";
+  }
+
+  // Un bloc de la frise : trajet éventuel au-dessus, puis le bloc dont la hauteur suit la durée.
+  function blockHtml(day, pl, row) {
+    var leg = row.leg || 0;
+    var legH = leg ? Math.max(LEG_MIN_H, Math.round(leg * SCALE)) : 0;
+    var bodyH, body, title;
+    if (row.kind === "lieu") {
+      bodyH = Math.max(MIN_H, Math.round(row.stay * SCALE));
+      body = lieuBody(row);
+      title = row.lieu.titre;
+    } else if (row.kind === "repas") {
+      bodyH = Math.max(MEAL_H, Math.round(row.dur * SCALE));
+      body = mealBody(day, pl, row);
+      title = "le déjeuner";
+    } else {
+      bodyH = MIN_H;
+      body = dodoBody(day, row);
+      title = "le dodo";
+    }
+    return '<div class="ag-blk ag-k-' + row.kind + '" data-key="' + esc(row.key) + '">' +
+      (leg ? '<div class="ag-leg" style="min-height:' + legH + 'px">🚗 ~' + fmt(leg) + "</div>" : "") +
+      '<div class="ag-body" style="min-height:' + bodyH + 'px">' +
+      '<button type="button" class="ag-grip" aria-label="Déplacer ' + esc(title) + '" title="Glisser pour déplacer">⠿</button>' +
+      body + "</div></div>";
+  }
+
+  // Liste de tous les lieux candidats : cochés = dans le programme.
+  function renderCandidates(day) {
+    return cands(day).map(function (c) {
+      var l = c.l, on = isOn(day, l, c.extra);
+      var meta = ["visite " + (l.est ? "~" : "") + fmt(quarter(l.min) || 15)];
+      if (l.famille === "à-éviter") meta.push("⚠ déconseillé aux enfants, non retenu par défaut");
+      if (l.lat == null) meta.push("non géolocalisé");
+      return '<li class="ag-cand' + (on ? "" : " off") + '"><label><input type="checkbox" data-lieu="' +
+        esc(l.id) + '" data-extra="' + (optional(l, c.extra) ? 1 : 0) + '"' + (on ? " checked" : "") +
+        '> <a href="' + esc(l.href) + '">' + esc(l.titre) + "</a></label>" +
+        "<small>" + esc(meta.join(" · ")) + "</small></li>";
+    }).join("");
   }
 
   function renderSleep(day) {
@@ -283,6 +377,7 @@
         return '<a href="' + esc(g.href) + '">' + esc(g.titre) + "</a>";
       }).join(", ") + "</p>"
       : "";
+    var blocks = pl.rows.map(function (r) { return blockHtml(day, pl, r); }).join("");
 
     el.innerHTML =
       '<header class="ag-head"><div class="ag-kicker">Jour ' + (current + 1) + " sur " + DAYS.length +
@@ -305,11 +400,30 @@
         (dir.truncated ? "<small>Google Maps accepte 9 étapes : les suivantes sont omises.</small>" : "") + "</p>"
         : "") +
 
-      '<h3>Programme</h3><ul class="ag-list">' + renderStops(day, pl) + "</ul>" +
-      '<p class="ag-hint">Décoche un lieu pour voir si la journée respire mieux. Les durées marquées « ~ » sont des estimations, les trajets sont à vol d\'oiseau + 35 %, le tout arrondi au quart d\'heure.</p>' +
+      '<h3>Programme</h3>' +
+      (day.depart
+        ? '<p class="ag-note">🚗 Départ de ' + esc(day.departLabel || "l'étape précédente") +
+        " — le trajet est compté dans la jauge.</p>"
+        : "") +
+      '<p class="ag-hint">Glisse la poignée ⠿ pour réorganiser : les heures se recalent toutes seules. ' +
+      "Les durées marquées « ~ » sont des estimations, les trajets à vol d'oiseau + 35 %, le tout arrondi au quart d'heure.</p>" +
+      '<div id="ag-tl" class="ag-tl" data-no-swipe>' + blocks + "</div>" +
+      (state.order[day.id]
+        ? '<p class="ag-reset"><button type="button" class="agenda-btn" id="ag-reset">Revenir à l\'ordre d\'origine</button></p>'
+        : "") +
+
+      (cands(day).length
+        ? "<h3>Lieux du jour</h3><p class=\"ag-hint\">Coche pour ajouter en fin de journée, décoche pour retirer.</p>" +
+        '<ul class="ag-list">' + renderCandidates(day) + "</ul>"
+        : "") +
       gouter +
       "<h3>Dodo</h3>" + renderSleep(day);
 
+    if (pendingFocus) {
+      var g = el.querySelector('.ag-blk[data-key="' + pendingFocus + '"] .ag-grip');
+      if (g) g.focus();
+      pendingFocus = null;
+    }
     initMap(day, pl);
   }
 
@@ -345,7 +459,7 @@
         .bindPopup('<div class="map-popup"><strong>' + esc(l.titre) + "</strong>" +
           '<a href="' + esc(l.href) + '">Voir la fiche →</a></div>');
     });
-    // Lieux décochés : points gris
+    // Lieux non retenus : points gris
     day.lieux.concat(day.extras).forEach(function (l) {
       var p = pt(l);
       if (p && pl.stops.indexOf(l) < 0) {
@@ -380,6 +494,77 @@
     try { localStorage.setItem(KEY + "-last", String(current)); } catch (e) { /* ignoré */ }
   }
 
+  // ---------- glisser pour réorganiser ----------
+
+  function onGripDown(e) {
+    var grip = e.target.closest ? e.target.closest(".ag-grip") : null;
+    if (!grip || (e.button !== undefined && e.button !== 0)) return;
+    var el = grip.closest(".ag-blk"), tl = document.getElementById("ag-tl");
+    if (!el || !tl) return;
+    var blocks = Array.prototype.slice.call(tl.querySelectorAll(".ag-blk"));
+    var centers = blocks.map(function (b) {
+      var r = b.getBoundingClientRect();
+      return r.top + r.height / 2;
+    });
+    drag = { el: el, blocks: blocks, centers: centers, idx: blocks.indexOf(el),
+      target: blocks.indexOf(el), y0: e.clientY, pid: e.pointerId };
+    el.classList.add("dragging");
+    try { grip.setPointerCapture(e.pointerId); } catch (err) { /* ignoré */ }
+    e.preventDefault();
+  }
+
+  function onGripMove(e) {
+    if (!drag || e.pointerId !== drag.pid) return;
+    var dy = e.clientY - drag.y0;
+    drag.el.style.transform = "translateY(" + dy + "px)";
+    var c = drag.centers[drag.idx] + dy;
+    // Nouvelle position : nombre de blocs (hors celui qu'on tient) situés au-dessus du centre
+    var n = 0, others = [];
+    drag.blocks.forEach(function (b, i) {
+      if (i === drag.idx) return;
+      others.push(b);
+      if (drag.centers[i] < c) n++;
+    });
+    drag.target = n;
+    drag.blocks.forEach(function (b) { b.classList.remove("ag-drop"); });
+    if (n < others.length) others[n].classList.add("ag-drop");
+  }
+
+  function endDrag(apply) {
+    if (!drag) return;
+    var d = drag;
+    drag = null;
+    d.el.classList.remove("dragging");
+    d.el.style.transform = "";
+    d.blocks.forEach(function (b) { b.classList.remove("ag-drop"); });
+    if (!apply || d.target === d.idx) return;
+    var day = DAYS[current];
+    var keys = d.blocks.map(function (b) { return b.getAttribute("data-key"); });
+    var moved = keys.splice(d.idx, 1)[0];
+    keys.splice(d.target, 0, moved);
+    state.order[day.id] = keys;
+    save();
+    renderDay();
+  }
+
+  // Clavier : flèches haut/bas sur la poignée
+  function onGripKey(e) {
+    var grip = e.target.closest ? e.target.closest(".ag-grip") : null;
+    if (!grip) return;
+    var dir = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+    if (!dir) return;
+    e.preventDefault();
+    var day = DAYS[current], k = grip.closest(".ag-blk").getAttribute("data-key");
+    var keys = orderKeys(day), i = keys.indexOf(k), j = i + dir;
+    if (i < 0 || j < 0 || j >= keys.length) return;
+    keys.splice(i, 1);
+    keys.splice(j, 0, k);
+    state.order[day.id] = keys;
+    save();
+    pendingFocus = k;
+    renderDay();
+  }
+
   // ---------- événements ----------
 
   function init() {
@@ -409,15 +594,25 @@
       current = parseInt(b.getAttribute("data-i"), 10);
       render();
     });
-    document.getElementById("agenda-day").addEventListener("change", function (e) {
+    var dayEl = document.getElementById("agenda-day");
+    dayEl.addEventListener("change", function (e) {
       var t = e.target, day = DAYS[current];
       if (t.matches("input[data-lieu]")) {
         var k = day.id + ":" + t.getAttribute("data-lieu");
+        var lk = "l:" + t.getAttribute("data-lieu");
+        // On part de l'ordre affiché, puis on ajoute ou retire le lieu
+        var keys = orderKeys(day);
         if (t.getAttribute("data-extra") === "1") {
           if (t.checked) state.on[k] = true; else delete state.on[k];
         } else {
           if (t.checked) delete state.off[k]; else state.off[k] = true;
         }
+        if (t.checked) {
+          if (keys.indexOf(lk) < 0) insertLate(keys, lk);
+        } else {
+          keys = keys.filter(function (x) { return x !== lk; });
+        }
+        state.order[day.id] = keys;
         save();
         renderDay();
       } else if (t.matches("select[data-meal]")) {
@@ -426,6 +621,18 @@
         renderDay();
       }
     });
+    dayEl.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest("#ag-reset")) {
+        delete state.order[DAYS[current].id];
+        save();
+        renderDay();
+      }
+    });
+    dayEl.addEventListener("pointerdown", onGripDown);
+    dayEl.addEventListener("keydown", onGripKey);
+    window.addEventListener("pointermove", onGripMove);
+    window.addEventListener("pointerup", function () { endDrag(true); });
+    window.addEventListener("pointercancel", function () { endDrag(false); });
 
     // Glisser à gauche/droite : jour suivant/précédent (voir swipe.js)
     window.addEventListener("carnet:swipe", function (e) {
