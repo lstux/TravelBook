@@ -85,16 +85,53 @@ document.querySelectorAll(".admin-tab").forEach((btn) => {
 // Onglet Carte — filtrée par région / statut / recherche
 // ==========================================================================
 
+// ==========================================================================
+// Fonds de carte au choix (OSM, relief, satellite, clair)
+// Même liste et même clé de mémorisation (localStorage) que app.js : le choix
+// fait sur le site est repris dans l'admin et inversement. app.js n'est pas
+// chargé dans l'admin, d'où cette copie. Aucun fond ne demande de clé d'API.
+// ==========================================================================
+
+const BASE_LAYER_KEY = "carnet-fond-de-carte";
+
+function initBaseLayers(map) {
+  const osm = "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>";
+  const layers = {
+    "Plan (OSM)": L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: osm,
+    }),
+    "Relief (OpenTopoMap)": L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+      maxZoom: 17,
+      attribution: osm + ", SRTM | &copy; <a href='https://opentopomap.org'>OpenTopoMap</a> (CC-BY-SA)",
+    }),
+    "Satellite (Esri)": L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 19, attribution: "Tiles &copy; Esri, Maxar, Earthstar Geographics" }
+    ),
+    "Clair (Carto)": L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      maxZoom: 20, subdomains: "abcd",
+      attribution: osm + " &copy; <a href='https://carto.com/attributions'>CARTO</a>",
+    }),
+  };
+
+  let saved = null;
+  try { saved = localStorage.getItem(BASE_LAYER_KEY); } catch (e) { /* stockage indisponible */ }
+  const current = layers[saved] ? saved : "Plan (OSM)";
+  layers[current].addTo(map);
+
+  L.control.layers(layers, null, { position: "topright", collapsed: true }).addTo(map);
+  map.on("baselayerchange", (e) => {
+    try { localStorage.setItem(BASE_LAYER_KEY, e.name); } catch (err) { /* ignoré */ }
+  });
+}
+
 let map = null;
 let markersLayer = null;
 
 function initMapIfNeeded() {
   if (map) return;
   map = L.map("admin-map");
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap",
-  }).addTo(map);
+  initBaseLayers(map);
   markersLayer = L.layerGroup().addTo(map);
 
   const regions = [...new Set(Object.values(ADMIN_DATA.fiches).map((f) => f.region).filter(Boolean))].sort();
